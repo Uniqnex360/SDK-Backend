@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Header, HTTPException
 from typing import List
-from backend.models.schemas import QuestionResponse
-from backend.services.auth import verify_api_key
+from models.schemas import QuestionResponse
+from services.auth import verify_api_key
 from bson import ObjectId
-from backend.models.schemas import product_questions
+from models.schemas import product_questions
 
 router = APIRouter()
 @router.get('/questions/{product_id}', response_model=List[QuestionResponse])

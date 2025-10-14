@@ -1,6 +1,5 @@
-from backend.models.schemas import product,product_questions
+from models.schemas import product,product_questions
 
-from django.conf import settings
 from openai import OpenAI
 from openai import OpenAIError
 from openai.types.chat import ChatCompletionMessage

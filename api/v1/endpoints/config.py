@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Header, HTTPException
-from backend.models.schemas import ConfigResponse
-from backend.services.auth import verify_api_key
+from models.schemas import ConfigResponse
+from services.auth import verify_api_key
 router=APIRouter()
 @router.get('/config',response_model=ConfigResponse)
 async def get_widget_config(x_api_key:str=Header(...,alias='X-API-KEY')):

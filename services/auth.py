@@ -2,7 +2,7 @@ import time
 from collections import defaultdict
 from fastapi import HTTPException
 API_KEYS={
-    'demo_key':{
+    'demo_key_12345':{
         'name':"Demo store",
         "domain":"*",
         "rate_limit":100
