@@ -11,17 +11,18 @@ GOOGLE_GEMINI_KEY = os.getenv("GOOGLE_GEMINI_API_KEY")
 
 client = OpenAI(api_key=OPEN_AI_KEY)
 
+
 def ask_gemini(prompt):
     import requests
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GOOGLE_GEMINI_KEY}"
-    
+
     headers = {'Content-Type': 'application/json'}
     payload = {
         'contents': [{
             'parts': [{'text': prompt}]
         }]
     }
-    
+
     try:
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
@@ -32,10 +33,11 @@ def ask_gemini(prompt):
     except Exception as e:
         return f"Error: {str(e)}"
 
+
 class ChatbotService:
     def __init__(self):
         pass
-    
+
     async def process_chat_message(
         self,
         user_query: str,
@@ -46,6 +48,8 @@ class ChatbotService:
         Process chat message using product context from frontend
         No database lookup needed - all data comes from frontend
         """
+        print(f'PRODUCTCONTENTETETETETE: {product_context}')
+
         try:
             # ✅ Extract product info from context
             product_name = product_context.get('name', 'this product')
@@ -55,7 +59,7 @@ class ChatbotService:
             product_brand = product_context.get('brand', 'N/A')
             product_category = product_context.get('category', 'N/A')
             in_stock = product_context.get('inStock', True)
-            
+
             # Build product info string
             product_info = f"""
 Product Name: {product_name}
@@ -66,16 +70,14 @@ Price: ${product_price}
 Description: {product_description}
 Availability: {'In Stock' if in_stock else 'Out of Stock'}
             """.strip()
-            
+
             # Create prompt
             prompt = f"""
 You are an AI assistant for an e-commerce website. Your task is to provide clear and relevant answers based on the given product details.
 
 ### Instructions:
 1. Answer concisely based only on the product details provided.
-2. If the requested detail is missing, say: "Sorry, this information is not available for the product."
 3. Avoid raw data dumps—only provide direct human-readable responses.
-4. If the question is unrelated to the product, say: "I can only provide product-related information."
 
 ---
 
@@ -89,13 +91,14 @@ You are an AI assistant for an e-commerce website. Your task is to provide clear
 
 ### AI Response:
             """
-            
+
             # Try OpenAI first, fallback to Gemini
             try:
                 response = client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=[
-                        {"role": "system", "content": "You are a helpful product assistant."},
+                        {"role": "system",
+                            "content": "You are a helpful product assistant."},
                         {"role": "user", "content": prompt}
                     ],
                     temperature=0.7,
@@ -105,9 +108,10 @@ You are an AI assistant for an e-commerce website. Your task is to provide clear
             except OpenAIError as e:
                 print(f"OpenAI failed, falling back to Gemini: {str(e)}")
                 return ask_gemini(prompt)
-                
+
         except Exception as e:
             print(f"Error in process_chat_message: {e}")
             import traceback
             traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"Error processing message: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Error processing message: {str(e)}")
