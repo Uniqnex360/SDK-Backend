@@ -17,3 +17,4 @@ async def get_widget_config(x_api_key:str=Header(...,alias='X-API-KEY')):
         placeholder='Type your message...')
     except Exception as e:
         raise HTTPException(status_code=500,detail=(str(e)))
+    

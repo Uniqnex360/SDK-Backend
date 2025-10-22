@@ -48,7 +48,7 @@ class ChatbotService:
         Process chat message using product context from frontend
         No database lookup needed - all data comes from frontend
         """
-        print(f'PRODUCTCONTENTETETETETE: {product_context}')
+        # print(f'PRODUCTCONTENTETETETETE: {product_context}')
 
         try:
             # ✅ Extract product info from context
@@ -59,7 +59,7 @@ class ChatbotService:
             product_brand = product_context.get('brand', 'N/A')
             product_category = product_context.get('category', 'N/A')
             in_stock = product_context.get('inStock', True)
-
+            print('productksu',product_context.get('variants', [{}])[0].get('id'))
             # Build product info string
             product_info = f"""
 Product Name: {product_name}
