@@ -38,7 +38,7 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
             print(f"🔍 Fetching full details for Shopify product ID: {shopify_product_id}")
             try:
                 product_response = await get_product_details(
-                    type('Request', (), {'product_id': str(shopify_product_id)})(),
+                    type('Request', (), {'product_iproduct_contextd': str(shopify_product_id)})(),
                     x_api_key
                 )
                 product_context = product_response
@@ -50,7 +50,7 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
                     detail=f"Could not fetch product details for ID {shopify_product_id}: {str(e)}"
                 )
         
-        if not product_context or not product_context.get('title'):
+        if not product_context or not (product_context.get('title') or product_context.get('name')):
             raise HTTPException(status_code=400, detail="Valid product context is required")
         
         # Process chat message with full product context
