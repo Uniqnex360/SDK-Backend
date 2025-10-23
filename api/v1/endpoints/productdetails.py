@@ -1,36 +1,34 @@
+from typing import Optional
+from dateutil import parser
+from datetime import datetime
 from fastapi import APIRouter, Header, HTTPException
 from models.schemas import ChatRequest, ChatResponse, ProductRequest, ShopifyProduct
 from services.auth import verify_api_key, check_rate_limit
 from typing import Dict, Any
 import os
 import asyncio
-import httpx  
+import httpx
 import logging
-
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 SHOPIFY_STORE = os.getenv("SHOPIFY_STORE")
 TOKEN = os.getenv("TOKEN")
-
 router = APIRouter()
-from datetime import datetime
-from dateutil import parser
-from typing import Optional
+
 
 def parse_shopify_date(date_str: str) -> Optional[datetime]:
     if not date_str:
         return None
     try:
-        # Convert ISO 8601 string to datetime object
+
         return parser.isoparse(date_str)
     except Exception as e:
         logger.warning(f"Failed to parse date {date_str}: {e}")
         return None
 
+
 async def save_product_to_db(product_data: dict):
-    # Prepare product document data
+
     product_doc = {
         "_id": product_data["id"],
         "title": product_data.get("title"),
@@ -58,56 +56,47 @@ async def save_product_to_db(product_data: dict):
         "shopify_updated_at": parse_shopify_date(product_data.get("updated_at")),
     }
 
-    # Upsert using MongoEngine
     existing_product = ShopifyProduct.objects(_id=product_doc["_id"]).first()
     if existing_product:
-        # Update existing product
+
         existing_product.update(**product_doc)
         saved_product = ShopifyProduct.objects(_id=product_doc["_id"]).first()
     else:
-        # Create new product
+
         saved_product = ShopifyProduct(**product_doc)
         saved_product.save()
-
     logger.info(f"Saved Shopify product ID: {saved_product._id}")
     print("Saved product with ID:", saved_product._id)
     return saved_product.to_dict()
 
 
 @router.post('/product')
-async def get_product_details(request: ProductRequest, x_api_key: str = Header(..., alias="X-API-Key")) -> Dict[str, Any]:
+async def get_product_details(product_id: str, x_api_key: str) -> Dict[str, Any]:
     try:
-        logger.info(f"Fetching Shopify product ID: {request.product_id}")
-
+        logger.info(f"Fetching Shopify product ID: {product_id}")
         config = verify_api_key(x_api_key)
         check_rate_limit(x_api_key, config['rate_limit'])
-
-        url = f"https://{SHOPIFY_STORE}/admin/api/2025-01/products/{request.product_id}.json"
+        url = f"https://{SHOPIFY_STORE}/admin/api/2025-01/products/{product_id}.json"
         headers = {
             "X-Shopify-Access-Token": TOKEN,
             "Content-Type": "application/json",
         }
-
         async with httpx.AsyncClient() as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
-
         product_data = response.json().get('product')
         if not product_data:
             raise HTTPException(status_code=404, detail="Product not found")
-
         logger.info(f"Fetched product: {product_data['title']}")
 
-        # ✅ Transform Shopify data to the correct format BEFORE saving
         variants = product_data.get('variants', [])
         first_variant = variants[0] if variants else {}
-        
-        # ✅ Create the product context in the correct format
+
         product_context = {
             'productId': int(product_data.get('id')),
             'sku': first_variant.get('sku') or str(product_data.get('id')),
             'title': product_data.get('title'),
-            'name': product_data.get('title'),  # Alias for compatibility
+            'name': product_data.get('title'),
             'description': strip_html_tags(product_data.get('body_html', '')),
             'price': float(first_variant.get('price', 0)),
             'currency': 'USD',
@@ -132,38 +121,35 @@ async def get_product_details(request: ProductRequest, x_api_key: str = Header(.
                 for v in variants[:10]
             ]
         }
-        
         logger.info(f"Transformed product context:")
         logger.info(f"  - ID: {product_context['productId']}")
         logger.info(f"  - SKU: {product_context['sku']}")
         logger.info(f"  - Title: {product_context['title']}")
-        logger.info(f"  - Description length: {len(product_context.get('description', ''))}")
-        
-        # ✅ Save to database (optional - you can save the raw or transformed data)
-        await save_product_to_db(product_data)  # Save raw Shopify data
-        logger.info(f"Saved Shopify product ID: {request.product_id}")
+        logger.info(
+            f"  - Description length: {len(product_context.get('description', ''))}")
 
-        # ✅ Return the properly formatted product context
+        await save_product_to_db(product_data)
+        logger.info(f"Saved Shopify product ID: {product_id}")
+
         return product_context
-
     except httpx.HTTPStatusError as e:
         logger.error(f"Shopify API error: {e}")
-        raise HTTPException(status_code=e.response.status_code, detail=f"Shopify API error: {e}")
-
+        raise HTTPException(status_code=e.response.status_code,
+                            detail=f"Shopify API error: {e}")
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 def strip_html_tags(html_text: str) -> str:
-    """Remove HTML tags from text"""
     import re
     if not html_text:
         return ""
     clean = re.compile('<.*?>')
     text = re.sub(clean, '', html_text)
-    # Remove excessive whitespace
+
     text = ' '.join(text.split())
     return text.strip()
