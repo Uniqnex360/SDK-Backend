@@ -96,37 +96,7 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
             request.session_id
         )
         
-        # Save AI-generated Q&A to database
-        if category_obj and response_text:
-            try:
-                # Check if this exact question already exists (to avoid duplicates)
-                existing = product_questions.objects(
-                    question__iexact=user_query,  # 👈 Exact match check
-                    category_id=category_obj
-                ).first()
-                
-                if not existing:
-                    # Save the AI-generated Q&A
-                    new_question = product_questions(
-                        question=user_query,
-                        answer=response_text,
-                        question_type="AI-Generated",
-                        category_id=category_obj
-                    )
-                    new_question.save()
-                    
-                    print(f"💾 Saved AI-generated Q&A to database")
-                    print(f"   Question ID: {new_question.id}")
-                    print(f"   Category ID: {category_obj.id}")
-                    print(f"   Category Name: {category_obj.name}")
-                else:
-                    print(f"ℹ️ Question already exists in database, not saving duplicate")
-                    
-            except Exception as e:
-                # Don't fail the request if saving fails
-                print(f"⚠️ Failed to save AI Q&A to database: {str(e)}")
-        else:
-            print(f"ℹ️ Not saving to database (category_obj={category_obj}, response={bool(response_text)})")
+        
         
         return ChatResponse(
             response=response_text,

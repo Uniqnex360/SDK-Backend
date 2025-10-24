@@ -30,6 +30,6 @@ async def get_product_questions(product_id:str,x_api_key:str=Header(...,alias='X
         product_questions_list = list(product_questions.objects.aggregate(*(pipeline)))
         return product_questions_list
     except Exception as e:
-        print(f"error: {e}")
+        print(f"error123: {e}")
         raise HTTPException(status_code=500,detail=str(e))
     
