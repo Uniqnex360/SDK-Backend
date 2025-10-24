@@ -2,7 +2,8 @@ from typing import Optional
 from dateutil import parser
 from datetime import datetime
 from fastapi import APIRouter, Header, HTTPException
-from models.schemas import ChatRequest, ChatResponse, ProductRequest, ShopifyProduct
+from models.schemas import ChatRequest, ChatResponse, ProductRequest, ShopifyProduct,product_category
+from mongoengine import ReferenceField
 from services.auth import verify_api_key, check_rate_limit
 from typing import Dict, Any
 import os
@@ -28,6 +29,14 @@ def parse_shopify_date(date_str: str) -> Optional[datetime]:
 
 
 async def save_product_to_db(product_data: dict):
+    product_type_name=product_data.get('product_data',"").strip()
+    category_obj=None
+    if product_type_name:
+        category_obj=product_category.objects(name=product_type_name).first()
+        if category_obj:
+            logger.info(f"Found matching category: {category_obj.name} for product_type: {product_type_name}")
+        else:
+            logger.warning(f"No matching category found for product_type: {product_type_name}")
 
     product_doc = {
         "_id": product_data["id"],
@@ -54,6 +63,7 @@ async def save_product_to_db(product_data: dict):
         "created_at": parse_shopify_date(product_data.get("created_at")),
         "updated_at": parse_shopify_date(product_data.get("updated_at")),
         "shopify_updated_at": parse_shopify_date(product_data.get("updated_at")),
+        "category_id": category_obj
     }
 
     existing_product = ShopifyProduct.objects(_id=product_doc["_id"]).first()
