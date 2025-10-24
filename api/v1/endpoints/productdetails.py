@@ -29,7 +29,7 @@ def parse_shopify_date(date_str: str) -> Optional[datetime]:
 
 
 async def save_product_to_db(product_data: dict):
-    product_type_name=product_data.get('product_data',"").strip()
+    product_type_name=product_data.get('product_type',"").strip()
     category_obj=None
     if product_type_name:
         category_obj=product_category.objects(name=product_type_name).first()
