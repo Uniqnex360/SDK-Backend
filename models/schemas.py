@@ -13,8 +13,6 @@ from dotenv import load_dotenv
 load_dotenv()
 MONGODB_HOST = os.getenv("MONGODB_HOST")
 MONGODB_NAME = os.getenv("MONGODB_NAME")
-print(MONGODB_HOST)
-print(MONGODB_NAME)
 
 try:
     connect(
@@ -22,9 +20,9 @@ try:
         host=MONGODB_HOST,
         alias="default"
     )
-    print("✅ MongoDB connected!")
+    print(" MongoDB connected!")
 except Exception as e:
-    print(f"❌ MongoDB connection failed: {e}")
+    print(f" MongoDB connection failed: {e}")
     raise
 class ProductRequest(BaseModel):
     product_id:int
@@ -490,12 +488,12 @@ def save_shopify_products_from_excel(file_path):
                 print(f"✓ Saved: {title} (SKU: {sku})")
                 
         except Exception as e:
-            print(f"❌ Error processing row: {e}")
+            print(f" Error processing row: {e}")
             skipped_count += 1
             continue
     
     print(f"\n{'='*50}")
-    print(f"✅ Total Saved: {saved_count}")
+    print(f" Total Saved: {saved_count}")
     print(f"🔄 Total Updated: {updated_count}")
     print(f"⚠ Total Skipped: {skipped_count}")
     print(f"📊 Total Processed: {saved_count + updated_count + skipped_count}")

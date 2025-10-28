@@ -38,9 +38,9 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
             try:
                 product_response = await get_product_details(shopify_product_id, x_api_key)
                 product_context = product_response
-                print(f"✅ Fetched product details: {product_context.get('title', 'N/A')}")
+                print(f" Fetched product details: {product_context.get('title', 'N/A')}")
             except Exception as e:
-                print(f"❌ Failed to fetch product details: {str(e)}")
+                print(f" Failed to fetch product details: {str(e)}")
                 raise HTTPException(
                     status_code=404, 
                     detail=f"Could not fetch product details for ID {shopify_product_id}: {str(e)}"
@@ -69,7 +69,7 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
                     ).first()
                     
                     if matching_question:
-                        print(f"✅ Found exact match in database!")
+                        print(f" Found exact match in database!")
                         print(f"   Question: {matching_question.question}")
                         print(f"   Answer: {matching_question.answer[:100]}...")
                         
@@ -135,9 +135,9 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
 #             try:
 #                 product_response = await get_product_details(shopify_product_id, x_api_key)
 #                 product_context = product_response
-#                 print(f"✅ Fetched product details: {product_context.get('title', 'N/A')}")
+#                 print(f" Fetched product details: {product_context.get('title', 'N/A')}")
 #             except Exception as e:
-#                 print(f"❌ Failed to fetch product details: {str(e)}")
+#                 print(f"Failed to fetch product details: {str(e)}")
 #                 raise HTTPException(
 #                     status_code=404,
 #                     detail=f"Could not fetch product details for ID {shopify_product_id}: {str(e)}"

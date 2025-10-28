@@ -41,13 +41,13 @@ class ChatbotService:
     async def process_chat_message(
         self,
         user_query: str,
-        product_context: dict,  # ✅ Changed from product_id
+        product_context: dict,  #  Changed from product_id
         session_id: str = None
     ):
         # print(f'PRODUCTCONTENTETETETETE: {product_context}')
 
         try:
-            # ✅ Extract product info from context
+            #  Extract product info from context
             product_name = product_context.get('name', 'this product')
             product_sku = product_context.get('sku', 'N/A')
             product_description = product_context.get('description', 'N/A')
