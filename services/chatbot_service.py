@@ -103,7 +103,7 @@ You are an AI assistant for an e-commerce website. Your task is to provide clear
                 return response.choices[0].message.content.strip()
             except OpenAIError as e:
                 print(f"OpenAI failed, falling back to Gemini: {str(e)}")
-                # return ask_gemini(prompt)
+                return ask_gemini(prompt)
 
         except Exception as e:
             print(f"Error in process_chat_message: {e}")
