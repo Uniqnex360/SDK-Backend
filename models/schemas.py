@@ -127,16 +127,62 @@ class ShopifyProduct(Document):
     product_type = StringField()
     handle = StringField()
     tags = ListField(StringField())
-    status = StringField()
+    status = StringField(default="active")
     body_html = StringField()
     image_url = StringField()
     variants = ListField(DictField())  
-    created_at = DateTimeField()
-    updated_at = DateTimeField()
+    created_at = DateTimeField(default=datetime.utcnow)
+    updated_at = DateTimeField(default=datetime.utcnow)
     shopify_updated_at = DateTimeField()  
-    last_synced = DateTimeField(default=datetime.now)
-    category_id=ReferenceField(product_category,null=True)
-    meta = {"collection": "shopify_products"} 
+    last_synced = DateTimeField(default=datetime.utcnow)
+    category_id = ReferenceField('product_category', null=True)
+    
+    # ===== NEW FIELDS FOR EXCEL DATA =====
+    
+    # Category Hierarchy (from Excel columns)
+    category_1 = StringField()
+    category_2 = StringField()
+    category_3 = StringField()
+    category_4 = StringField()
+    category_5 = StringField()
+    end_level = StringField()
+    
+    # Basic Product Info
+    sku = StringField()  # Main SKU field for easy access
+    brand = StringField()  # Duplicate of vendor for clarity
+    
+    # TV Specific Attributes
+    tv_type = StringField()
+    display_type = StringField()
+    screen_size = StringField()
+    os = StringField()
+    resolution = StringField()
+    refresh_rate = StringField()
+    smart_features = StringField()
+    
+    # Washing Machine Specific Attributes
+    load_type = StringField()
+    capacity = StringField()
+    laundry_features = StringField()
+    energy_rating = StringField()
+    
+    # Connectivity (for both TVs and other smart appliances)
+    connectivity = StringField()
+    
+    # Additional metadata
+    attributes = DictField(default={})  # Store any extra attributes as key-value pairs
+    
+    meta = {
+        "collection": "shopify_products",
+        "indexes": [
+            "sku",
+            "vendor",
+            "product_type",
+            "category_1",
+            "category_id"
+        ]
+    }
+    
     def to_dict(self):
         return {
             "_id": self._id,
@@ -153,7 +199,30 @@ class ShopifyProduct(Document):
             "updated_at": self.updated_at,
             "shopify_updated_at": self.shopify_updated_at,
             "last_synced": self.last_synced,
-            "category_id": str(self.category_id.id) if self.category_id else None
+            "category_id": str(self.category_id.id) if self.category_id else None,
+            
+            # New fields in to_dict
+            "category_1": self.category_1,
+            "category_2": self.category_2,
+            "category_3": self.category_3,
+            "category_4": self.category_4,
+            "category_5": self.category_5,
+            "end_level": self.end_level,
+            "sku": self.sku,
+            "brand": self.brand,
+            "tv_type": self.tv_type,
+            "display_type": self.display_type,
+            "screen_size": self.screen_size,
+            "os": self.os,
+            "resolution": self.resolution,
+            "refresh_rate": self.refresh_rate,
+            "smart_features": self.smart_features,
+            "load_type": self.load_type,
+            "capacity": self.capacity,
+            "laundry_features": self.laundry_features,
+            "energy_rating": self.energy_rating,
+            "connectivity": self.connectivity,
+            "attributes": self.attributes
         }
 class product_questions(Document):
     question = fields.StringField()
@@ -201,3 +270,276 @@ def save_questions_from_excel(file_path):
         ).save()
         print(f"Saved question :{question_txt}")
 # save_questions_from_excel("/home/lexicon/Downloads/Shopify - 27 Category - FAQ's - updated-1.xlsx")
+def save_shopify_products_from_excel(file_path):
+    df = pd.read_excel(file_path)
+    
+    saved_count = 0
+    updated_count = 0
+    skipped_count = 0
+    
+    for _, row in df.iterrows():
+        try:
+            # Get basic product info
+            title = str(row.get("Title", "")).strip()
+            sku = str(row.get("SKU", "")).strip()
+            brand = str(row.get("Brand", "")).strip()
+            
+            if not title or not sku:
+                print(f"⚠ Skipping row with missing Title or SKU")
+                skipped_count += 1
+                continue
+            
+            # Build category hierarchy
+            category_1 = str(row.get("Category-1", "")).strip()
+            category_2 = str(row.get("Category-2", "")).strip()
+            category_3 = str(row.get("Category-3", "")).strip()
+            category_4 = str(row.get("Category-4", "")).strip()
+            category_5 = str(row.get("Category-5", "")).strip()
+            end_level = str(row.get("End Level", "")).strip()
+            
+            categories = [c for c in [category_1, category_2, category_3, category_4, category_5] if c]
+            
+            # Get or create the product_type from the most specific category
+            product_type = categories[-1] if categories else "Uncategorized"
+            
+            # Find or create category
+            category_obj = None
+            if product_type:
+                category_obj = product_category.objects(name=product_type).first()
+                if not category_obj:
+                    category_obj = product_category(
+                        name=product_type,
+                        breadcrumb=" > ".join(categories),
+                        level=len(categories),
+                        end_level=True
+                    ).save()
+            
+            # Get all attribute fields
+            tv_type = str(row.get("TV Type", "")).strip() if pd.notna(row.get("TV Type")) else ""
+            display_type = str(row.get("Display Type", "")).strip() if pd.notna(row.get("Display Type")) else ""
+            screen_size = str(row.get("Screen Size", "")).strip() if pd.notna(row.get("Screen Size")) else ""
+            os = str(row.get("OS", "")).strip() if pd.notna(row.get("OS")) else ""
+            resolution = str(row.get("Resolution", "")).strip() if pd.notna(row.get("Resolution")) else ""
+            refresh_rate = str(row.get("Refresh rate", "")).strip() if pd.notna(row.get("Refresh rate")) else ""
+            connectivity = str(row.get("Connectivity", "")).strip() if pd.notna(row.get("Connectivity")) else ""
+            smart_features = str(row.get("Smart Features", "")).strip() if pd.notna(row.get("Smart Features")) else ""
+            
+            load_type = str(row.get("Load Type", "")).strip() if pd.notna(row.get("Load Type")) else ""
+            capacity = str(row.get("Capacity", "")).strip() if pd.notna(row.get("Capacity")) else ""
+            laundry_features = str(row.get("Laundry Features", "")).strip() if pd.notna(row.get("Laundry Features")) else ""
+            energy_rating = str(row.get("Energy Rating", "")).strip() if pd.notna(row.get("Energy Rating")) else ""
+            
+            # Build attributes dictionary for additional data
+            attributes = {}
+            if tv_type:
+                attributes["TV Type"] = tv_type
+            if display_type:
+                attributes["Display Type"] = display_type
+            if screen_size:
+                attributes["Screen Size"] = screen_size
+            if os:
+                attributes["Operating System"] = os
+            if resolution:
+                attributes["Resolution"] = resolution
+            if refresh_rate:
+                attributes["Refresh Rate"] = refresh_rate
+            if connectivity:
+                attributes["Connectivity"] = connectivity
+            if smart_features:
+                attributes["Smart Features"] = smart_features
+            if load_type:
+                attributes["Load Type"] = load_type
+            if capacity:
+                attributes["Capacity"] = capacity
+            if laundry_features:
+                attributes["Laundry Features"] = laundry_features
+            if energy_rating:
+                attributes["Energy Rating"] = energy_rating
+            
+            # Build body_html from attributes
+            body_html = f"<h3>{title}</h3>"
+            if attributes:
+                body_html += "<h4>Product Specifications</h4><ul>"
+                for key, value in attributes.items():
+                    if value:
+                        body_html += f"<li><strong>{key}:</strong> {value}</li>"
+                body_html += "</ul>"
+            
+            # Build tags list
+            tags = categories.copy()
+            if brand:
+                tags.append(brand)
+            tags.extend([k for k in attributes.keys()])
+            
+            # Create handle (URL-friendly version of title)
+            handle = title.lower().replace(" ", "-").replace("|", "").replace("  ", "-").replace("/", "-")
+            
+            # Build variant data
+            variant = {
+                "sku": sku,
+                "title": "Default",
+                "price": "0.00",
+                "inventory_quantity": 0,
+                "inventory_management": "shopify",
+            }
+            
+            # Check if product already exists by SKU
+            existing_product = ShopifyProduct.objects(sku=sku).first()
+            
+            if existing_product:
+                # Update existing product
+                existing_product.title = title
+                existing_product.vendor = brand
+                existing_product.brand = brand
+                existing_product.product_type = product_type
+                existing_product.handle = handle
+                existing_product.tags = tags
+                existing_product.body_html = body_html
+                existing_product.updated_at = datetime.utcnow()
+                existing_product.last_synced = datetime.utcnow()
+                existing_product.category_id = category_obj
+                
+                # Update category fields
+                existing_product.category_1 = category_1
+                existing_product.category_2 = category_2
+                existing_product.category_3 = category_3
+                existing_product.category_4 = category_4
+                existing_product.category_5 = category_5
+                existing_product.end_level = end_level
+                
+                # Update TV attributes
+                existing_product.tv_type = tv_type
+                existing_product.display_type = display_type
+                existing_product.screen_size = screen_size
+                existing_product.os = os
+                existing_product.resolution = resolution
+                existing_product.refresh_rate = refresh_rate
+                existing_product.smart_features = smart_features
+                
+                # Update Washing Machine attributes
+                existing_product.load_type = load_type
+                existing_product.capacity = capacity
+                existing_product.laundry_features = laundry_features
+                existing_product.energy_rating = energy_rating
+                
+                # Update connectivity
+                existing_product.connectivity = connectivity
+                
+                # Update attributes dict
+                existing_product.attributes = attributes
+                
+                # Update variant
+                existing_product.variants = [variant]
+                
+                existing_product.save()
+                updated_count += 1
+                print(f"✓ Updated: {title} (SKU: {sku})")
+            else:
+                # Create new product - Generate new ID
+                last_product = ShopifyProduct.objects.order_by('-_id').first()
+                new_id = (last_product._id + 1) if last_product else 1
+                
+                new_product = ShopifyProduct(
+                    _id=new_id,
+                    title=title,
+                    vendor=brand,
+                    brand=brand,
+                    sku=sku,
+                    product_type=product_type,
+                    handle=handle,
+                    tags=tags,
+                    status="active",
+                    body_html=body_html,
+                    variants=[variant],
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                    last_synced=datetime.utcnow(),
+                    category_id=category_obj,
+                    
+                    # Category fields
+                    category_1=category_1,
+                    category_2=category_2,
+                    category_3=category_3,
+                    category_4=category_4,
+                    category_5=category_5,
+                    end_level=end_level,
+                    
+                    # TV attributes
+                    tv_type=tv_type,
+                    display_type=display_type,
+                    screen_size=screen_size,
+                    os=os,
+                    resolution=resolution,
+                    refresh_rate=refresh_rate,
+                    smart_features=smart_features,
+                    
+                    # Washing Machine attributes
+                    load_type=load_type,
+                    capacity=capacity,
+                    laundry_features=laundry_features,
+                    energy_rating=energy_rating,
+                    
+                    # Connectivity
+                    connectivity=connectivity,
+                    
+                    # Attributes dict
+                    attributes=attributes
+                )
+                new_product.save()
+                saved_count += 1
+                print(f"✓ Saved: {title} (SKU: {sku})")
+                
+        except Exception as e:
+            print(f"❌ Error processing row: {e}")
+            skipped_count += 1
+            continue
+    
+    print(f"\n{'='*50}")
+    print(f"✅ Total Saved: {saved_count}")
+    print(f"🔄 Total Updated: {updated_count}")
+    print(f"⚠ Total Skipped: {skipped_count}")
+    print(f"📊 Total Processed: {saved_count + updated_count + skipped_count}")
+    print(f"{'='*50}")
+    
+    return {
+        "saved": saved_count,
+        "updated": updated_count,
+        "skipped": skipped_count,
+        "total": saved_count + updated_count + skipped_count
+    }
+
+
+def get_shopify_product_by_sku(sku):
+    return ShopifyProduct.objects(sku=sku).first()
+
+
+def get_shopify_products_by_category(category_name):
+    category = product_category.objects(name=category_name).first()
+    if not category:
+        return []
+    
+    products = ShopifyProduct.objects(category_id=category)
+    return list(products)
+
+
+def get_shopify_products_by_vendor(vendor_name):
+    products = ShopifyProduct.objects(vendor=vendor_name)
+    return list(products)
+
+
+def get_shopify_products_by_attribute(attribute_name, attribute_value):
+    query = {attribute_name: attribute_value}
+    products = ShopifyProduct.objects(**query)
+    return list(products)
+
+
+def delete_all_shopify_products():
+    count = ShopifyProduct.objects.count()
+    ShopifyProduct.objects.delete()
+    print(f"🗑 Deleted {count} products from shopify_products collection")
+    return count
+
+
+# Example usage:
+# result = save_shopify_products_from_excel("/home/lexicon/Downloads/Shopify - Appliances - Product Finder (1).xlsx")
+# print(f"Import completed: {result}")
