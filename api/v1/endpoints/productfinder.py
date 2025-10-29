@@ -6,19 +6,19 @@ from bson import ObjectId
 import pandas as pd
 from spellchecker import SpellChecker
 router = APIRouter()
-@router.get('/fourth_level_categories', response_model=List[QuestionResponse])
+@router.get('/fourth_level_categories')
 async def fourth_level_categories_view(x_api_key: str = Header(..., alias='X-API-KEY')):
     try:
-        verify_api_key(x_api_key)
-        categories_cursor = product_category.objects, filter = {
-            "end_level": True}
+        # verify_api_key(x_api_key)
+        categories_cursor = product_category.objects(end_level=True)
         categories_list = []
         for ins in categories_cursor:
             cat = {
                 "id": str(ins.id),
                 "name": ins.name,
             }
-        categories_list.append(cat)
+            categories_list.append(cat)
+        print('categories',categories_list)
         return {"categories": categories_list}
     except Exception as e:
         print(f"Error fetching categories: {e}")
