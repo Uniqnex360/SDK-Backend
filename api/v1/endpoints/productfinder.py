@@ -19,6 +19,7 @@ async def fourth_level_categories_view(x_api_key: str = Header(..., alias='X-API
                 "name": ins.name,
             }
             categories_list.append(cat)
+            print(categories_list)
         return {"data": {"categories": categories_list}}
     except Exception as e:
         print(f"Error fetching categories: {e}")
@@ -54,11 +55,7 @@ async def get_products_filtered(
                 return {"products": []}
         if brand:
             brand_list = [b.strip() for b in brand.split(',')]
-            brand_regex = '|'.join(brand_list)  
-            match["$or"] = [
-                {"title": {"$regex": f"\\b({brand_regex})\\b", "$options": "i"}},
-                {"tags": {"$in": [b.lower() for b in brand_list]}},
-            ]
+            match["brand"] = {"$in": brand_list}
         attributes = {}
         if color:
             attributes['Color'] = color.split(',')
@@ -107,6 +104,7 @@ async def get_products_filtered(
         "price": {"$ifNull": [{"$first": "$variants.price"}, 0]},
         "description": {"$ifNull": ["$body_html", ""]},
         "tags": {"$ifNull": ["$tags", []]},
+        "brand": {"$ifNull": ["$brand", ""]},
         "vendor": {"$ifNull": ["$vendor", ""]},
     }
 })
@@ -125,6 +123,29 @@ async def get_products_filtered(
         print(f"❌ Error in /products endpoint: {e}")
         import traceback
         traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+@router.get("/category/{category_id}", response_model=dict)
+async def get_single_category(
+    category_id: str,
+    x_api_key: str = Header(..., alias="X-API-KEY")
+):
+    """
+    Return one category document (id, name, breadcrumb …)
+    so the widget can build the collection handle.
+    """
+    verify_api_key(x_api_key)
+
+    try:
+        cat = product_category.objects.get(id=ObjectId(category_id))
+        return {
+            "id": str(cat.id),
+            "name": cat.name,
+            "breadcrumb": getattr(cat, "breadcrumb", ""),
+        }
+    except product_category.DoesNotExist:
+        raise HTTPException(status_code=404,
+                            detail=f"Category {category_id} not found")
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
 @router.get('/category_filters')  
