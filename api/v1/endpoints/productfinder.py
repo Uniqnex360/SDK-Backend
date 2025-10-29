@@ -4,6 +4,7 @@ from models.schemas import product_category, QuestionResponse, ShopifyProduct,fi
 from services.auth import verify_api_key
 from bson import ObjectId
 import pandas as pd
+from typing import Optional
 from spellchecker import SpellChecker
 router = APIRouter()
 @router.get('/fourth_level_categories')
@@ -18,35 +19,54 @@ async def fourth_level_categories_view(x_api_key: str = Header(..., alias='X-API
                 "name": ins.name,
             }
             categories_list.append(cat)
-        print('categories',categories_list)
-        return {"categories": categories_list}
+        return {"data": {"categories": categories_list}}
     except Exception as e:
         print(f"Error fetching categories: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-@router.post('/productList')
-async def productList(request: Request,x_api_key: str = Header(..., alias='X-API-KEY')):
+    
+@router.get('/products')
+async def get_products_filtered(
+    request: Request,
+    x_api_key: str = Header(..., alias='X-API-KEY'),
+    category: Optional[str] = Query(None),
+    search_query: Optional[str] = Query(None, alias='search'),
+    brand: Optional[str] = Query(None),
+    color: Optional[str] = Query(None),
+):
+    """
+    GET version of /productList for URL-based filtering
+    """
+    print("\n" + "="*60)
+    print("🔍 GET /products REQUEST")
+    print("="*60)
+    print(f"📋 Category: {category}")
+    print(f"📋 Brand: {brand}")
+    print(f"📋 Color: {color}")
+    print("="*60 + "\n")
     try:
         verify_api_key(x_api_key)
-        json_request = await request.json()
-        search_query = json_request.get("search_query", "")
-        category_id = json_request.get("category_id")
-        attributes = json_request.get("attributes", {})
-        if search_query:
-            search_query = search_query.strip()
-            try:
-                spell = SpellChecker()
-                search_query = ' '.join(
-                    [spell.correction(word) or word for word in search_query.split()])
-            except Exception as e:
-                print(f"Spell check error: {e}")
         match = {}
-        if category_id:
-            match["category_id"] = ObjectId(category_id)
-        if attributes and isinstance(attributes, dict):
+        if category:
+            try:
+                match["category_id"] = ObjectId(category)
+            except Exception as e:
+                print(f"Invalid category ID: {e}")
+                return {"products": []}
+        if brand:
+            brand_list = [b.strip() for b in brand.split(',')]
+            brand_regex = '|'.join(brand_list)  
+            match["$or"] = [
+                {"title": {"$regex": f"\\b({brand_regex})\\b", "$options": "i"}},
+                {"tags": {"$in": [b.lower() for b in brand_list]}},
+            ]
+        attributes = {}
+        if color:
+            attributes['Color'] = color.split(',')
+        if attributes:
             for attribute_name, attribute_values in attributes.items():
-                if attribute_values and isinstance(attribute_values, list):
-                    match[f"attributes.{attribute_name}"] = {
-                        "$in": attribute_values}
+                if attribute_values:
+                    match[f"attributes.{attribute_name}"] = {"$in": attribute_values}
+        print(f"🔍 Match query: {match}")
         pipeline = [{"$match": match}]
         pipeline.extend([
             {
@@ -59,84 +79,52 @@ async def productList(request: Request,x_api_key: str = Header(..., alias='X-API
             },
             {
                 "$unwind": "$product_category_ins"
-            },
-            {
+            }
+        ])
+        if search_query and search_query.strip():
+            search_query = search_query.strip()
+            pipeline.append({
                 "$match": {
                     "$or": [
                         {"brand_name": {"$regex": search_query, "$options": "i"}},
-                        {"product_category_ins.name": {
-                            "$regex": search_query, "$options": "i"}},
-                        {"sku_number_product_code_item_number": {
-                            "$regex": search_query, "$options": "i"}},
-                        {"mpn": {"$regex": search_query, "$options": "i"}},
-                        {"model": {"$regex": search_query, "$options": "i"}},
-                        {"upc_ean": {"$regex": search_query, "$options": "i"}},
-                        {"product_name": {"$regex": f'^{search_query}$', "$options": "i"}},
-                        {
-                            "$expr": {
-                                "$gt": [
-                                    {
-                                        "$size": {
-                                            "$filter": {
-                                                "input": {"$objectToArray": "$attributes"},
-                                                "cond": {
-                                                    "$or": [
-                                                        {
-                                                            "$and": [
-                                                                {"$eq": [
-                                                                    {"$type": "$$this.k"}, "string"]},
-                                                                {"$regexMatch": {
-                                                                    "input": "$$this.k", "regex": search_query, "options": "i"}}
-                                                            ]
-                                                        },
-                                                        {
-                                                            "$and": [
-                                                                {"$eq": [
-                                                                    {"$type": "$$this.v"}, "string"]},
-                                                                {"$regexMatch": {
-                                                                    "input": "$$this.v", "regex": search_query, "options": "i"}}
-                                                            ]
-                                                        },
-                                                        {
-                                                            "$and": [
-                                                                {"$in": [{"$type": "$$this.v"}, [
-                                                                    "int", "long", "double", "decimal"]]},
-                                                                {"$regexMatch": {
-                                                                    "input": {"$toString": "$$this.v"}, "regex": search_query, "options": "i"}}
-                                                            ]
-                                                        }
-                                                    ]
-                                                }
-                                            }
-                                        }
-                                    },
-                                    0
-                                ]
-                            }
-                        },
-                        {"long_description": {"$regex": search_query, "$options": "i"}},
-                        {"features": {"$regex": search_query, "$options": "i"}},
+                        {"product_name": {"$regex": search_query, "$options": "i"}},
+                        {"sku_number_product_code_item_number": {"$regex": search_query, "$options": "i"}},
                     ]
                 }
-            },
-            {
-                "$project": {
-                    "_id": 0,
-                    "id": {"$toString": "$_id"},
-                    "image_url": {"$ifNull": [{"$first": "$images"}, "http://example.com/"]},
-                    "sku": {"$ifNull": ["$sku_number_product_code_item_number", "N/A"]},
-                    "name": {"$ifNull": ["$product_name", "N/A"]},
-                    "category": "$product_category_ins.name",
-                    "price": {"$ifNull": [{"$round": ["$list_price", 2]}, 0.0]},
-                    "mpn": {"$ifNull": ["$mpn", "N/A"]},
-                    "brand_name": {"$ifNull": ["$brand_name", "N/A"]},
-                }
-            },
-        ])
+            })
+        pipeline.append({
+    "$project": {
+        "_id": 0,
+        "id": {"$toString": "$_id"},
+        "shopify_id": "$_id",
+        "handle": {"$ifNull": ["$handle", ""]},  
+        "variant_id": {"$ifNull": [{"$first": "$variants.id"}, None]},  
+        "image": {"$ifNull": ["$image_url", "https://via.placeholder.com/300"]},
+        "title": {"$ifNull": ["$title", "Untitled"]},
+        "sku": {"$ifNull": [{"$first": "$variants.sku"}, "N/A"]},
+        "category": {"$ifNull": ["$product_category_ins.name", "Uncategorized"]},
+        "breadcrumb":{"$ifNull": ["$product_category_ins.breadcrumb", ""]},   
+        "price": {"$ifNull": [{"$first": "$variants.price"}, 0]},
+        "description": {"$ifNull": ["$body_html", ""]},
+        "tags": {"$ifNull": ["$tags", []]},
+        "vendor": {"$ifNull": ["$vendor", ""]},
+    }
+})
+        print(f"🔍 Running aggregation pipeline...")
         product_list = list(ShopifyProduct.objects.aggregate(*pipeline))
-        return {"data": {"products": product_list}}
+        for product in product_list:
+            product['price'] = f"${product.get('price', 0)} USD"
+            if not product.get('image'):
+                product['image'] = 'https://via.placeholder.com/300'
+            if product.get('handle'):
+                product['handle'] = product['handle'].lower().replace(' ', '-').replace('/', '-')
+        print(f"✅ Found {len(product_list)} products")
+        print(f"📦 Sample product: {product_list[0] if product_list else 'None'}")
+        return {"products": product_list}
     except Exception as e:
-        print(f"Error fetching products: {e}")
+        print(f"❌ Error in /products endpoint: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     
 @router.get('/category_filters')  

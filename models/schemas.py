@@ -550,3 +550,186 @@ def save_questions_from_excel(file_path):
 # Example usage:
 # result = save_shopify_products_from_excel("/home/lexicon/Downloads/Shopify - Appliances - Product Finder (1).xlsx")
 # print(f"Import completed: {result}")
+import pandas as pd
+from collections import defaultdict
+
+def save_filters_from_excel(file_path):
+    """
+    Reads Excel file and creates filter documents for each End Level category
+    based on the attributes present in the data.
+    """
+    df = pd.read_excel(file_path)
+    
+    # Define attribute mappings for different categories
+    # Format: {column_name: (display_name, filter_type)}
+    attribute_mappings = {
+        # TV Attributes
+        "TV Type": ("TV Type", "multi-select"),
+        "Display Type": ("Display Type", "multi-select"),
+        "Screen Size": ("Screen Size", "multi-select"),
+        "OS": ("Operating System", "multi-select"),
+        "Resolution": ("Resolution", "multi-select"),
+        "Refresh rate": ("Refresh Rate", "multi-select"),
+        
+        # Washing Machine Attributes
+        "Load Type": ("Load Type", "multi-select"),
+        "Capacity": ("Capacity", "multi-select"),
+        "Laundry Features": ("Laundry Features", "multi-select"),
+        "Energy Rating": ("Energy Rating", "multi-select"),
+        
+        # Common Attributes
+        "Connectivity": ("Connectivity", "multi-select"),
+        "Smart Features": ("Smart Features", "multi-select"),
+        "Brand": ("Brand", "multi-select")
+    }
+    
+    # Group data by End Level category
+    category_data = defaultdict(lambda: defaultdict(set))
+    
+    for _, row in df.iterrows():
+        end_level = str(row.get("End Level", "")).strip()
+        if not end_level:
+            continue
+        
+        # Collect unique values for each attribute
+        for col_name, (display_name, filter_type) in attribute_mappings.items():
+            value = str(row.get(col_name, "")).strip()
+            if value and value.lower() not in ["", "nan", "none"]:
+                category_data[end_level][col_name].add(value)
+    
+    # Statistics
+    saved_count = 0
+    updated_count = 0
+    skipped_count = 0
+    
+    # Create filters for each category
+    for category_name, attributes in category_data.items():
+        # Find or create category
+        category_obj = product_category.objects(name=category_name).first()
+        if not category_obj:
+            print(f"⚠ Category '{category_name}' not found. Creating...")
+            category_obj = product_category(
+                name=category_name,
+                end_level=True
+            ).save()
+        
+        print(f"\n📁 Processing category: {category_name}")
+        
+        # Create filters for each attribute
+        display_order = 1
+        for col_name, values in attributes.items():
+            if col_name not in attribute_mappings:
+                continue
+            
+            display_name, filter_type = attribute_mappings[col_name]
+            
+            # Convert set to sorted list
+            options = sorted(list(values))
+            
+            # Build filter config
+            config = {
+                "options": options,
+                "display_style": "checkbox" if filter_type == "multi-select" else "dropdown"
+            }
+            
+            # Check if filter already exists
+            existing_filter = filter.objects(
+                category_id=category_obj,
+                name=display_name
+            ).first()
+            
+            if existing_filter:
+                # Update existing filter
+                existing_filter.filter_type = filter_type
+                existing_filter.display_order = display_order
+                existing_filter.config = config
+                existing_filter.save()
+                updated_count += 1
+                print(f"  🔄 Updated filter: {display_name} ({len(options)} options)")
+            else:
+                # Create new filter
+                new_filter = filter(
+                    category_id=category_obj,
+                    name=display_name,
+                    filter_type=filter_type,
+                    display_order=display_order,
+                    config=config
+                )
+                new_filter.save()
+                saved_count += 1
+                print(f"  ✓ Created filter: {display_name} ({len(options)} options)")
+            
+            display_order += 1
+    
+    print(f"\n{'='*60}")
+    print(f"✅ Total Filters Created: {saved_count}")
+    print(f"🔄 Total Filters Updated: {updated_count}")
+    print(f"⚠  Total Skipped: {skipped_count}")
+    print(f"📊 Total Processed: {saved_count + updated_count}")
+    print(f"{'='*60}")
+    
+    return {
+        "saved": saved_count,
+        "updated": updated_count,
+        "skipped": skipped_count,
+        "total": saved_count + updated_count
+    }
+
+
+def get_filters_by_category(category_name):
+    """
+    Retrieve all filters for a specific category.
+    Returns filters sorted by display_order.
+    """
+    category_obj = product_category.objects(name=category_name).first()
+    if not category_obj:
+        return []
+    
+    filters = filter.objects(category_id=category_obj).order_by('display_order')
+    return list(filters)
+
+
+def get_filters_by_category_id(category_id):
+    """
+    Retrieve all filters for a specific category by ID.
+    Returns filters sorted by display_order.
+    """
+    category_obj = product_category.objects(id=category_id).first()
+    if not category_obj:
+        return []
+    
+    filters = filter.objects(category_id=category_obj).order_by('display_order')
+    return list(filters)
+
+
+def delete_filters_by_category(category_name):
+    """
+    Delete all filters for a specific category.
+    """
+    category_obj = product_category.objects(name=category_name).first()
+    if not category_obj:
+        print(f"⚠ Category '{category_name}' not found")
+        return 0
+    
+    count = filter.objects(category_id=category_obj).count()
+    filter.objects(category_id=category_obj).delete()
+    print(f"🗑 Deleted {count} filters for category '{category_name}'")
+    return count
+
+
+def delete_all_filters():
+    """
+    Delete all filters from the database.
+    """
+    count = filter.objects.count()
+    filter.objects.delete()
+    print(f"🗑 Deleted {count} filters from database")
+    return count
+
+
+# result = save_filters_from_excel("/home/lexicon/Downloads/Shopify - Appliances - Product Finder (1).xlsx")
+# print(f"Filter import completed: {result}")
+
+# tv_filters = get_filters_by_category("TV")
+# for f in tv_filters:
+#     print(f"Filter: {f.name}, Type: {f.filter_type}, Options: {f.config.get('options', [])}")
