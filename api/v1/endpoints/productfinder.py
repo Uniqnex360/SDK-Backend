@@ -9,7 +9,7 @@ router = APIRouter()
 @router.get('/fourth_level_categories')
 async def fourth_level_categories_view(x_api_key: str = Header(..., alias='X-API-KEY')):
     try:
-        # verify_api_key(x_api_key)
+        verify_api_key(x_api_key)
         categories_cursor = product_category.objects(end_level=True)
         categories_list = []
         for ins in categories_cursor:
