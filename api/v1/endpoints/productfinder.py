@@ -25,7 +25,7 @@ async def fourth_level_categories_view(x_api_key: str = Header(..., alias='X-API
     except Exception as e:
         print(f"Error fetching categories: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 ATTRIBUTE_MAP: Dict[str, str] = {
     "color":            "Color",
     "capacity":         "Capacity",
@@ -42,6 +42,7 @@ ATTRIBUTE_MAP: Dict[str, str] = {
     "smart_features":   "Smart Features",
 }
 BASE_QUERY_PARAMS = {"category", "search", "brand"}
+
 
 @router.get('/products')
 async def get_products_filtered(
@@ -60,25 +61,26 @@ async def get_products_filtered(
     try:
         verify_api_key(x_api_key)
         match: Dict[str, object] = {}
-        
+
         if category:
             try:
                 match["category_id"] = ObjectId(category)
             except Exception:
                 return {"products": []}
-        
+
         if brand:
             match["brand"] = {"$in": [b.strip() for b in brand.split(",")]}
-        
+
         for raw_key, raw_val in request.query_params.items():
             q_key = raw_key.strip().replace(" ", "_").lower()
             if q_key in BASE_QUERY_PARAMS or q_key not in ATTRIBUTE_MAP:
                 continue
-            values: List[str] = [v.strip() for v in raw_val.split(",") if v.strip()]
+            values: List[str] = [v.strip()
+                                 for v in raw_val.split(",") if v.strip()]
             if values:
                 attr_name = ATTRIBUTE_MAP[q_key]
                 match[f"attributes.{attr_name}"] = {"$in": values}
-        
+
         pipeline = [
             {"$match": match},
             {"$lookup": {
@@ -88,7 +90,7 @@ async def get_products_filtered(
                 "as":           "product_category_ins"}},
             {"$unwind": "$product_category_ins"},
         ]
-        
+
         if search_query and search_query.strip():
             s = search_query.strip()
             pipeline.append({"$match": {
@@ -98,7 +100,7 @@ async def get_products_filtered(
                     {"sku_number_product_code_item_number": {
                         "$regex": s, "$options": "i"}},
                 ]}})
-        
+
         pipeline.append({
             "$project": {
                 "_id": 0,
@@ -117,36 +119,35 @@ async def get_products_filtered(
                 "brand":       {"$ifNull": ["$brand", ""]},
                 "vendor":      {"$ifNull": ["$vendor", ""]},
             }})
-        
+
         product_list = list(ShopifyProduct.objects.aggregate(*pipeline))
-        
+
         for p in product_list:
             p["price"] = f"${p.get('price', 0)} USD"
-            
-            # ✅ CLEAN THE HANDLE - Remove quotes and invalid characters
+
             if p.get("handle"):
                 handle = p["handle"]
-                # Remove quotes and other invalid URL characters
+
                 handle = handle.replace('"', '').replace("'", '')
                 handle = handle.lower().replace(' ', '-').replace('/', '-')
-                # Remove any other special characters except hyphens and alphanumeric
+
                 import re
                 handle = re.sub(r'[^a-z0-9-]', '', handle)
-                # Replace multiple hyphens with single
+
                 handle = re.sub(r'-+', '-', handle)
-                # Remove leading/trailing hyphens
+
                 handle = handle.strip('-')
                 p["handle"] = handle
-            
+
             if not p.get('image'):
                 p['image'] = 'https://via.placeholder.com/300'
-        
+
         print(f'✅ Found {len(product_list)} products')
         if product_list:
             print(f'📦 Sample product: {product_list[0]}')
-        
+
         return {"products": product_list}
-        
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -189,7 +190,12 @@ async def category_filters_view(category_id: str = Query(...),  x_api_key: str =
             f = ins.to_mongo().to_dict()
             f.pop('_id', None)
             f.pop('category_id', None)
-            if f.get('config', {}).get('options', []):
+            config=f.get('config',{})
+            options=config.get('options',[])
+            valid_options=[opt for opt in options if opt  and str(opt).strip()!='']
+            config['options']=valid_options
+            f['config']=config
+            if valid_options:
                 for key, value in f.items():
                     if pd.isna(value) or value == float('nan'):
                         f[key] = None
