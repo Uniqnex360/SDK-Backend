@@ -139,8 +139,6 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
             raise HTTPException(status_code=400, detail="Product context must include at least description or title")
 
         if needs_full_details:
-            if shopify_product_id and "gid://shopify/Product/" not in str(shopify_product_id):
-                shopify_product_id = f"gid://shopify/Product/{shopify_product_id}"
             print(f"🔍 Fetching full details for Shopify product ID: {shopify_product_id}")
             try:
                 product_response = await get_product_details(shopify_product_id, x_api_key)
