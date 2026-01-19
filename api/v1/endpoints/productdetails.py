@@ -86,7 +86,7 @@ async def get_product_details(product_id: str, x_api_key: str) -> Dict[str, Any]
         logger.info(f"Fetching Shopify product ID: {product_id}")
         config = verify_api_key(x_api_key)
         check_rate_limit(x_api_key, config['rate_limit'])
-        url = f"https://{SHOPIFY_STORE}/admin/api/2025-01/products/{product_id}.json"
+        url = f"https://{SHOPIFY_STORE}/admin/api/2024-10/products/{product_id}.json"
         headers = {
             "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
             "Content-Type": "application/json",
