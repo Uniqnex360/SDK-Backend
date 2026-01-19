@@ -33,6 +33,7 @@ class ProductResponse(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     product_context: Dict[str, Any]  
+    product_id: Optional[str] = None 
     session_id: Optional[str] = None
 class ChatResponse(BaseModel):
     response: str

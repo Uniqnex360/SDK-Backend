@@ -41,7 +41,7 @@ class ChatbotService:
     async def process_chat_message(
         self,
         user_query: str,
-        product_context: dict,  #  Changed from product_id
+        product_context: dict,  # Changed from product_id
         session_id: str = None
     ):
         # print(f'PRODUCTCONTENTETETETETE: {product_context}')
@@ -55,7 +55,8 @@ class ChatbotService:
             product_brand = product_context.get('brand', 'N/A')
             product_category = product_context.get('category', 'N/A')
             in_stock = product_context.get('inStock', True)
-            print('productksu',product_context.get('variants', [{}])[0].get('id'))
+            print('productksu', product_context.get(
+                'variants', [{}])[0].get('id'))
             # Build product info string
             product_info = f"""
 Product Name: {product_name}
