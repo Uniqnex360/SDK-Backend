@@ -13,7 +13,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 SHOPIFY_STORE = os.getenv("SHOPIFY_STORE")
-TOKEN = os.getenv("TOKEN")
+SHOPIFY_ACCESS_TOKEN = os.getenv("SHOPIFY_ACCESS_TOKEN")
 router = APIRouter()
 
 
@@ -88,7 +88,7 @@ async def get_product_details(product_id: str, x_api_key: str) -> Dict[str, Any]
         check_rate_limit(x_api_key, config['rate_limit'])
         url = f"https://{SHOPIFY_STORE}/admin/api/2025-01/products/{product_id}.json"
         headers = {
-            "X-Shopify-Access-Token": TOKEN,
+            "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
             "Content-Type": "application/json",
         }
         async with httpx.AsyncClient() as client:
