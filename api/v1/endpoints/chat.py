@@ -177,7 +177,8 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
         response_text = await chatbot_service.process_chat_message(
             user_query,
             product_context,
-            request.session_id
+            request.session_id,
+             x_api_key,  
         )
 
         return ChatResponse(

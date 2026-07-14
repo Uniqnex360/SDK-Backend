@@ -1,4 +1,4 @@
-#!/home/lexicon/Documents/Harisankar/Projects/chatbot_sdk/backend/venv/bin/python3.9
+#!/home/lexicon/Documents/Harisankar/Projects/conversational_commerce/backend/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
